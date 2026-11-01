@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+*/node_modules/
+*/*/node_modules/
+
+# Environment files (sensitive credentials)
+.env
+.env.local
+.env.*.local
+*.env
+*.env.*
+!.env.example
+!*.env.example
+
+# Production builds
+dist/
+build/
+*/dist/
+*/build/
+
+# Uploads / user media
+uploads/
+*/uploads/*
+!*/uploads/.gitkeep
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
