@@ -77,7 +77,7 @@ export const OrdersPage: React.FC = () => {
           <tbody className="divide-y divide-slate-800/50">
             {filteredOrders.length === 0 ? (
               <tr>
-                <td colSpan="7" className="px-5 py-8 text-center">
+                <td colSpan={7} className="px-5 py-8 text-center">
                   <p className="text-slate-500">No orders found</p>
                 </td>
               </tr>

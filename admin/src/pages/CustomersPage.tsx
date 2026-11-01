@@ -79,7 +79,7 @@ export const CustomersPage: React.FC = () => {
           <tbody className="divide-y divide-slate-800/50">
             {filteredCustomers.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-5 py-8 text-center">
+                <td colSpan={6} className="px-5 py-8 text-center">
                   <p className="text-slate-500">No customers found</p>
                 </td>
               </tr>

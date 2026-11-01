@@ -15,7 +15,7 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
   const [form, setForm] = useState({
     name: '',
     slug: '',
-    category: 'MANGO' as const,
+    category: 'MANGO' as 'MANGO' | 'PAPAYA',
     shortDescription: '',
     description: '',
     price: '',
