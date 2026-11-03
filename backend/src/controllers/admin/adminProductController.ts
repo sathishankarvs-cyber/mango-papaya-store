@@ -142,6 +142,7 @@ export const updateProduct = async (
 
     const allowedUpdates = [
       'name',
+      'slug',
       'category',
       'description',
       'shortDescription',
@@ -162,9 +163,33 @@ export const updateProduct = async (
       'images',
     ];
 
+    if (req.body.slug && req.body.slug !== product.slug) {
+      const slugExists = await Product.findOne({ slug: req.body.slug.toLowerCase().trim(), _id: { $ne: id } });
+      if (slugExists) {
+        throw new BadRequestError(`Slug "${req.body.slug}" is already taken by another product.`);
+      }
+      product.slug = req.body.slug.toLowerCase().trim();
+    }
+
     for (const key of allowedUpdates) {
+      if (key === 'slug') continue;
       if (req.body[key] !== undefined) {
-        (product as any)[key] = req.body[key];
+        if (key === 'discountPrice' && (req.body[key] === null || req.body[key] === '')) {
+          product.discountPrice = undefined;
+        } else {
+          (product as any)[key] = req.body[key];
+        }
+      }
+    }
+
+    if (product.discountPrice !== undefined && product.discountPrice !== null) {
+      if (product.discountPrice < 0) {
+        throw new BadRequestError('Discount price cannot be negative.');
+      }
+      if (product.discountPrice >= product.price) {
+        throw new BadRequestError(
+          `Discount price (₹${product.discountPrice}) must be lower than the regular price (₹${product.price}).`
+        );
       }
     }
 

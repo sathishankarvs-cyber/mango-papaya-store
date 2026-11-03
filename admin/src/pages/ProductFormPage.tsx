@@ -79,17 +79,39 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
     setError('');
     setSaving(true);
 
+    const priceNum = Number(form.price);
+    if (isNaN(priceNum) || priceNum < 0) {
+      setError('Price must be a valid number of 0 or greater.');
+      setSaving(false);
+      return;
+    }
+
+    let parsedDiscountPrice: number | null = null;
+    if (form.discountPrice !== '' && form.discountPrice !== null && form.discountPrice !== undefined) {
+      parsedDiscountPrice = Number(form.discountPrice);
+      if (isNaN(parsedDiscountPrice) || parsedDiscountPrice < 0) {
+        setError('Discount Price cannot be negative. If there is no discount, please leave it empty or 0.');
+        setSaving(false);
+        return;
+      }
+      if (parsedDiscountPrice >= priceNum) {
+        setError(`Discount Price (₹${parsedDiscountPrice}) must be lower than the regular Price (₹${priceNum}).`);
+        setSaving(false);
+        return;
+      }
+    }
+
     try {
       const payload = {
-        name: form.name,
-        slug: form.slug || form.name.toLowerCase().replace(/\s+/g, '-'),
+        name: form.name.trim(),
+        slug: form.slug ? form.slug.trim().toLowerCase().replace(/\s+/g, '-') : undefined,
         category: form.category,
         description: form.description,
         shortDescription: form.shortDescription,
-        price: Number(form.price),
-        discountPrice: form.discountPrice ? Number(form.discountPrice) : undefined,
-        unit: form.unit,
-        availableQuantity: Number(form.availableQuantity),
+        price: priceNum,
+        discountPrice: parsedDiscountPrice,
+        unit: form.unit || 'kg',
+        availableQuantity: Number(form.availableQuantity || 0),
         minimumOrderQuantity: Number(form.minimumOrderQuantity || 1),
         maximumOrderQuantity: Number(form.maximumOrderQuantity || 20),
         isSeasonallyAvailable: form.isSeasonallyAvailable,
@@ -110,7 +132,23 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
 
       navigate('/products');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to save product');
+      if (err.response?.data) {
+        const { message, error: detailedError } = err.response.data;
+        if (Array.isArray(detailedError) && detailedError.length > 0) {
+          const detailMsgs = detailedError
+            .map((e: any) => `${e.field ? `${e.field}: ` : ''}${e.message}`)
+            .join(' | ');
+          setError(`${message || 'Validation failed'}: ${detailMsgs}`);
+        } else if (typeof detailedError === 'string') {
+          setError(detailedError);
+        } else if (message) {
+          setError(message);
+        } else {
+          setError('Failed to save product');
+        }
+      } else {
+        setError(err.message || 'Failed to save product');
+      }
     } finally {
       setSaving(false);
     }
@@ -195,6 +233,8 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
                 <label className="block text-sm font-medium text-slate-300">Price (₹)</label>
                 <input
                   type="number"
+                  min="0"
+                  step="any"
                   value={form.price}
                   onChange={(e) => setForm({ ...form, price: e.target.value })}
                   className="w-full pl-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -202,13 +242,17 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
                 />
               </div>
               <div className="space-y-3">
-                <label className="block text-sm font-medium text-slate-300">Discount Price (₹)</label>
+                <label className="block text-sm font-medium text-slate-300">
+                  Discount Price (₹) <span className="text-xs text-slate-400 font-normal">(Optional, must be &gt;= 0)</span>
+                </label>
                 <input
                   type="number"
+                  min="0"
+                  step="any"
                   value={form.discountPrice}
                   onChange={(e) => setForm({ ...form, discountPrice: e.target.value })}
                   className="w-full pl-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  placeholder="Optional"
+                  placeholder="Leave empty or >= 0"
                 />
               </div>
               <div className="space-y-3">
@@ -229,16 +273,20 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
                 <label className="block text-sm font-medium text-slate-300">Available Quantity</label>
                 <input
                   type="number"
+                  min="0"
+                  step="1"
                   value={form.availableQuantity}
                   onChange={(e) => setForm({ ...form, availableQuantity: e.target.value })}
                   className="w-full pl-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                  placeholder="e.g. 100 kg"
+                  placeholder="e.g. 100"
                 />
               </div>
               <div className="space-y-3">
                 <label className="block text-sm font-medium text-slate-300">Min Order Qty</label>
                 <input
                   type="number"
+                  min="0.1"
+                  step="any"
                   value={form.minimumOrderQuantity}
                   onChange={(e) => setForm({ ...form, minimumOrderQuantity: e.target.value })}
                   className="w-full pl-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
@@ -249,6 +297,8 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
                 <label className="block text-sm font-medium text-slate-300">Max Order Qty</label>
                 <input
                   type="number"
+                  min="1"
+                  step="any"
                   value={form.maximumOrderQuantity}
                   onChange={(e) => setForm({ ...form, maximumOrderQuantity: e.target.value })}
                   className="w-full pl-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
