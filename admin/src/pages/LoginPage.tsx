@@ -30,7 +30,11 @@ export const LoginPage: React.FC<LoginPageProps> = () => {
       login(token, admin);
       navigate('/', { replace: true });
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Invalid admin credentials');
+      if (!err.response) {
+        setError('Cannot connect to backend server. Make sure the backend is running on port 5000.');
+      } else {
+        setError(err.response?.data?.message || 'Invalid admin credentials');
+      }
     } finally {
       setIsLoading(false);
     }
