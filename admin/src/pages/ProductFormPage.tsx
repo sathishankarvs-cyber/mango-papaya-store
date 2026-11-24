@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Plus, Image, AlertCircle, Mail, Phone, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Image, AlertCircle, Upload, Trash2, Package } from 'lucide-react';
 import api from '../services/api';
 import { Product } from '../types';
 
@@ -11,6 +11,8 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [imageUrlInput, setImageUrlInput] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [form, setForm] = useState({
     name: '',
@@ -154,14 +156,52 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
     }
   };
 
-  const addImage = (url: string) => {
-    if (url && !form.images.includes(url)) {
-      setForm({ ...form, images: [...form.images, url] });
+  const handleAddImageUrl = () => {
+    const url = imageUrlInput.trim();
+    if (!url) return;
+    if (form.images.includes(url)) {
+      setError('This image URL has already been added.');
+      return;
+    }
+    setForm((prev) => ({ ...prev, images: [...prev.images, url] }));
+    setImageUrlInput('');
+    setError('');
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploadingImage(true);
+    setError('');
+
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('images', files[i]);
+      }
+
+      const res = await api.post('/admin/products/upload-images', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const uploadedUrls: string[] = res.data.data?.imageUrls || [];
+      if (uploadedUrls.length > 0) {
+        setForm((prev) => ({
+          ...prev,
+          images: [...prev.images, ...uploadedUrls],
+        }));
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to upload image file');
+    } finally {
+      setUploadingImage(false);
+      e.target.value = '';
     }
   };
 
   const removeImage = (index: number) => {
-    setForm({ ...form, images: form.images.filter((_, i) => i !== index) });
+    setForm((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
   };
 
   if (isLoading) {
@@ -333,39 +373,104 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = () => {
           </div>
 
           {/* Images */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-slate-300">Product Images</label>
-            <div className="flex items-center space-x-4 max-w-xs">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Image URL..."
-                  value=""
-                  onFocus={(e) => {
-                    // handle paste/add
-                  }}
-                  className="pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                />
-                <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-              </div>
-              <button
-                onClick={() => addImage(window.prompt('Enter image URL:') || '')}
-                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg text-sm font-medium transition-all"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Image
-              </button>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <label className="block text-sm font-medium text-slate-300">
+                Product Images <span className="text-xs text-slate-400 font-normal">({form.images.length} added)</span>
+              </label>
+              <span className="text-xs text-amber-400/90">First image will be the primary storefront cover</span>
             </div>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {form.images.map((img, i) => (
-                <div key={i} className="flex items-center space-x-2 px-3 py-1 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-200 text-sm">
-                  <span>{img.length > 40 ? img.slice(0, 40) + '...' : img}</span>
-                  <button onClick={() => removeImage(i)} className="p-1 hover:bg-red-500/20 rounded">
-                    <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
+
+            {/* Input Options: URL + Computer File Upload */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Option 1: Direct Image URL */}
+              <div className="flex items-center space-x-2">
+                <div className="relative flex-1">
+                  <Image className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="url"
+                    placeholder="Paste direct image URL (https://...)"
+                    value={imageUrlInput}
+                    onChange={(e) => setImageUrlInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddImageUrl();
+                      }
+                    }}
+                    className="w-full pl-10 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent placeholder-slate-500"
+                  />
                 </div>
-              ))}
+                <button
+                  type="button"
+                  onClick={handleAddImageUrl}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-400 hover:text-amber-300 rounded-lg text-sm font-medium transition-colors flex items-center space-x-1 shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add URL</span>
+                </button>
+              </div>
+
+              {/* Option 2: Upload File From Device */}
+              <div>
+                <label className={`w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-lg border border-dashed border-slate-700 hover:border-amber-500/70 bg-slate-800/40 hover:bg-slate-800/80 cursor-pointer transition-all ${uploadingImage ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <Upload className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-sm text-slate-300">
+                    {uploadingImage ? 'Uploading image...' : 'Upload from Computer (JPG, PNG, WebP)'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/avif"
+                    multiple
+                    disabled={uploadingImage}
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
             </div>
+
+            {/* Thumbnail Preview Gallery */}
+            {form.images.length === 0 ? (
+              <div className="p-6 border border-dashed border-slate-800 rounded-xl text-center bg-slate-900/40">
+                <Package className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                <p className="text-sm text-slate-400">No images added for this product yet.</p>
+                <p className="text-xs text-slate-500 mt-1">Upload an image file above or paste a direct image URL.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {form.images.map((img, i) => (
+                  <div key={i} className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-800/90 shadow-sm flex flex-col">
+                    <div className="relative h-28 bg-slate-950 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={img}
+                        alt={`Product image ${i + 1}`}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>';
+                        }}
+                        className="w-full h-full object-cover"
+                      />
+                      {i === 0 && (
+                        <span className="absolute top-2 left-2 px-2 py-0.5 bg-amber-500 text-slate-950 font-bold text-[10px] rounded-md shadow">
+                          Cover
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeImage(i)}
+                        className="absolute top-2 right-2 p-1.5 bg-red-600/90 hover:bg-red-600 text-white rounded-lg opacity-90 group-hover:opacity-100 transition-opacity shadow"
+                        title="Remove image"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="p-2 text-[11px] text-slate-400 truncate bg-slate-900 border-t border-slate-800" title={img}>
+                      {img.startsWith('/uploads/') ? '📁 Uploaded Image' : img}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Tags & Origin */}

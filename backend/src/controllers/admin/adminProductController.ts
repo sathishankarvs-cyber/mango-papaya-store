@@ -1,5 +1,5 @@
 import { Response, NextFunction } from 'express';
-import { Product, Order, Inventory } from '../../models';
+import { Product, Order, Inventory, Cart } from '../../models';
 import { AuthenticatedRequest } from '../../middleware/auth';
 import { sendSuccess } from '../../utils/response';
 import { BadRequestError, NotFoundError } from '../../utils/errors';
@@ -225,20 +225,12 @@ export const deleteProduct = async (
     const product = await Product.findById(id);
     if (!product) throw new NotFoundError('Product not found');
 
-    // Check if referenced by existing orders
-    const orderCount = await Order.countDocuments({ 'items.product': product._id });
-    if (orderCount > 0) {
-      // Safe deactivation instead of permanent hard delete
-      product.isActive = false;
-      await product.save();
-      await vectorService.removeProductVector(id);
-      sendSuccess(res, product, `Product is linked to ${orderCount} order(s). It has been safely deactivated instead of deleted.`);
-      return;
-    }
-
     await Product.findByIdAndDelete(id);
     await Inventory.findOneAndDelete({ product: id });
     await vectorService.removeProductVector(id);
+
+    // Remove from any active carts
+    await Cart.updateMany({}, { $pull: { items: { product: id } } });
 
     sendSuccess(res, null, 'Product deleted successfully');
   } catch (error) {
